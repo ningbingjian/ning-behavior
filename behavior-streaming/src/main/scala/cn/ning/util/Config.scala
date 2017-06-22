@@ -62,7 +62,7 @@ class Config {
     }
   }
   def set(key:String,value:String): Unit ={
-    set(key) = value
+    settings(key) = value
   }
 
 

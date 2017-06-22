@@ -79,6 +79,7 @@ object BehaviorStreaming {
         .format("orc")
         .mode(SaveMode.Append)
         .saveAsTable("ning.ning-behavior")
+      offsetToZk(kafkaCluster,offsetRanges.get(),groupId)
     })
     ssc
   }
