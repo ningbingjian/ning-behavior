@@ -87,8 +87,7 @@ object BehaviorStreaming {
     for(offset <- offsetRanges){
       val topicAndPartition = TopicAndPartition(offset.topic,offset.partition)
       val topicAndPartitionMap = Map(
-        topicAndPartition,
-        offset.untilOffset
+        topicAndPartition -> offset.untilOffset
       )
       kafkaCluster.setConsumerOffsets(groupId, topicAndPartitionMap)
     }
@@ -97,7 +96,7 @@ object BehaviorStreaming {
     val topicandPartitions = kafkaCluster.getPartitions(topicSet).right.get
     val consumerOffsets = kafkaCluster.getConsumerOffsets(groupId,topicandPartitions) match {
       case Left(x) =>
-        val consumerOffsetsLong = IMap[TopicAndPartition, Long]()
+        val consumerOffsetsLong = MMap[TopicAndPartition, Long]()
         for(topicandPartition <- topicandPartitions){
           consumerOffsetsLong(topicandPartition) = 0
         }

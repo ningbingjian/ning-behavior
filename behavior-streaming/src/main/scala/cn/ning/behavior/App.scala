@@ -9,7 +9,7 @@ import org.apache.spark.{SparkConf, SparkContext}
   */
 object App {
   def main(args: Array[String]): Unit = {
-    val mapper = new ObjectMapper()()
+    val mapper = new ObjectMapper()
     mapper.registerModule(DefaultScalaModule)
   }
 }

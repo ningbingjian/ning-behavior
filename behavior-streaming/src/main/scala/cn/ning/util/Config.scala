@@ -6,7 +6,7 @@ import java.io.InputStream
 import cn.ning.util.Constant._
 import scala.collection.mutable.{Map => MMap}
 import scala.collection.immutable.{Map => IMap}
-
+import scala.collection.JavaConverters._
 class Config {
   val settings = MMap[String,String]()
   def load(): Unit ={
@@ -15,8 +15,8 @@ class Config {
     try{
       ips = this.getClass.getClassLoader.getResourceAsStream("config.properties")
       properties.load(ips)
-      for(name <- properties.propertyNames()){
-        settings.put(name,properties.getProperty(name))
+      for(name <- properties.stringPropertyNames().asScala){
+        settings(name) = properties.getProperty(name)
       }
     }catch{
       case ex => throw new RuntimeException(ex)
