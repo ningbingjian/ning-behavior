@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<configuration>
+
+    <!-- ch.qos.logback.core.ConsoleAppender 控制台输出 -->
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>[%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- daily rollover 每天自动生成目录 -->
+            <fileNamePattern>E:/tmp/%d{yyyyMMdd,aux}/logFile.%d{yyyy-MM-dd-HH}.log</fileNamePattern>
+            <!-- keep 30 days' worth of history capped at 3GB total size -->
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>[ %-5level] [%date{yyyy-MM-dd HH:mm:ss.SSS}] %logger{96}[%line] - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    <!-- 日志级别 -->
+    <root>
+        <!-- 定义了ERROR和INFO级别的日志，分别在FILE文件和控制台输出 -->
+        <level value="error" />
+        <level value="info" />
+        <appender-ref ref="console" />
+        <appender-ref ref="file" />
+    </root>
+
+</configuration>
