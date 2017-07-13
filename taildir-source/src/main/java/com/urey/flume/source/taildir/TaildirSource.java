@@ -15,7 +15,7 @@
  * the License.
  */
 
-package cn.ning.flume.source;
+package com.urey.flume.source.taildir;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -32,9 +32,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -62,12 +59,16 @@ public class TaildirSource extends AbstractSource implements
   private int checkIdleInterval = 5000;
   private int writePosInitDelay = 5000;
   private int writePosInterval;
-  private boolean cachePatternMatching;
 
   private List<Long> existingInodes = new CopyOnWriteArrayList<Long>();
   private List<Long> idleInodes = new CopyOnWriteArrayList<Long>();
   private Long backoffSleepIncrement;
   private Long maxBackOffSleepInterval;
+
+  private boolean recursiveDirectorySearch;
+  private boolean annotateYarnApplicationId;
+  private boolean annotateYarnContainerId;
+
   private boolean fileHeader;
   private String fileHeaderKey;
 
@@ -81,7 +82,9 @@ public class TaildirSource extends AbstractSource implements
           .positionFilePath(positionFilePath)
           .skipToEnd(skipToEnd)
           .addByteOffset(byteOffsetHeader)
-          .cachePatternMatching(cachePatternMatching)
+          .recursiveDirectorySearch(recursiveDirectorySearch)
+          .annotateYarnApplicationId(annotateYarnApplicationId)
+          .annotateYarnContainerId(annotateYarnContainerId)
           .annotateFileName(fileHeader)
           .fileNameHeader(fileHeaderKey)
           .build();
@@ -138,36 +141,31 @@ public class TaildirSource extends AbstractSource implements
     String fileGroups = context.getString(TaildirSourceConfigurationConstants.FILE_GROUPS);
     Preconditions.checkState(fileGroups != null, "Missing param: " + TaildirSourceConfigurationConstants.FILE_GROUPS);
 
-    filePaths = selectByKeys(context.getSubProperties(TaildirSourceConfigurationConstants.FILE_GROUPS_PREFIX),
-                             fileGroups.split("\\s+"));
+    filePaths = selectByKeys(context.getSubProperties(TaildirSourceConfigurationConstants.FILE_GROUPS_PREFIX), fileGroups.split("\\s+"));
     Preconditions.checkState(!filePaths.isEmpty(),
         "Mapping for tailing files is empty or invalid: '" + TaildirSourceConfigurationConstants.FILE_GROUPS_PREFIX + "'");
 
     String homePath = System.getProperty("user.home").replace('\\', '/');
     positionFilePath = context.getString(TaildirSourceConfigurationConstants.POSITION_FILE, homePath + TaildirSourceConfigurationConstants.DEFAULT_POSITION_FILE);
-    Path positionFile = Paths.get(positionFilePath);
-    try {
-      Files.createDirectories(positionFile.getParent());
-    } catch (IOException e) {
-      throw new FlumeException("Error creating positionFile parent directories", e);
-    }
     headerTable = getTable(context, TaildirSourceConfigurationConstants.HEADERS_PREFIX);
     batchSize = context.getInteger(TaildirSourceConfigurationConstants.BATCH_SIZE, TaildirSourceConfigurationConstants.DEFAULT_BATCH_SIZE);
     skipToEnd = context.getBoolean(TaildirSourceConfigurationConstants.SKIP_TO_END, TaildirSourceConfigurationConstants.DEFAULT_SKIP_TO_END);
     byteOffsetHeader = context.getBoolean(TaildirSourceConfigurationConstants.BYTE_OFFSET_HEADER, TaildirSourceConfigurationConstants.DEFAULT_BYTE_OFFSET_HEADER);
     idleTimeout = context.getInteger(TaildirSourceConfigurationConstants.IDLE_TIMEOUT, TaildirSourceConfigurationConstants.DEFAULT_IDLE_TIMEOUT);
     writePosInterval = context.getInteger(TaildirSourceConfigurationConstants.WRITE_POS_INTERVAL, TaildirSourceConfigurationConstants.DEFAULT_WRITE_POS_INTERVAL);
-    cachePatternMatching = context.getBoolean(TaildirSourceConfigurationConstants.CACHE_PATTERN_MATCHING,
-        TaildirSourceConfigurationConstants.DEFAULT_CACHE_PATTERN_MATCHING);
 
-    backoffSleepIncrement = context.getLong(PollableSourceConstants.BACKOFF_SLEEP_INCREMENT,
-        PollableSourceConstants.DEFAULT_BACKOFF_SLEEP_INCREMENT);
-    maxBackOffSleepInterval = context.getLong(PollableSourceConstants.MAX_BACKOFF_SLEEP,
-        PollableSourceConstants.DEFAULT_MAX_BACKOFF_SLEEP);
-    fileHeader = context.getBoolean(TaildirSourceConfigurationConstants.FILENAME_HEADER,
-            TaildirSourceConfigurationConstants.DEFAULT_FILE_HEADER);
-    fileHeaderKey = context.getString(TaildirSourceConfigurationConstants.FILENAME_HEADER_KEY,
-            TaildirSourceConfigurationConstants.DEFAULT_FILENAME_HEADER_KEY);
+    backoffSleepIncrement = context.getLong(PollableSourceConstants.BACKOFF_SLEEP_INCREMENT
+            , PollableSourceConstants.DEFAULT_BACKOFF_SLEEP_INCREMENT);
+    maxBackOffSleepInterval = context.getLong(PollableSourceConstants.MAX_BACKOFF_SLEEP
+            , PollableSourceConstants.DEFAULT_MAX_BACKOFF_SLEEP);
+
+    recursiveDirectorySearch = context.getBoolean(TaildirSourceConfigurationConstants.RECURSIVE_DIRECTORY_SEARCH,
+            TaildirSourceConfigurationConstants.DEFAULT_RECURSIVE_DIRECTORY_SEARCH);
+    annotateYarnApplicationId = context.getBoolean(TaildirSourceConfigurationConstants.YARN_APPLICATION_HEADER, TaildirSourceConfigurationConstants.DEFAULT_YARN_APPLICATION_HEADER);
+    annotateYarnContainerId = context.getBoolean(TaildirSourceConfigurationConstants.YARN_CONTAINER_HEADER, TaildirSourceConfigurationConstants.DEFAULT_YARN_CONTAINER_HEADER);
+
+    fileHeader = context.getBoolean(TaildirSourceConfigurationConstants.FILENAME_HEADER, TaildirSourceConfigurationConstants.DEFAULT_FILE_HEADER);
+    fileHeaderKey = context.getString(TaildirSourceConfigurationConstants.FILENAME_HEADER_KEY, TaildirSourceConfigurationConstants.DEFAULT_FILENAME_HEADER_KEY);
 
     if (sourceCounter == null) {
       sourceCounter = new SourceCounter(getName());
@@ -223,12 +221,10 @@ public class TaildirSource extends AbstractSource implements
     return status;
   }
 
-  //@Override
   public long getBackOffSleepIncrement() {
     return backoffSleepIncrement;
   }
 
-  //@Override
   public long getMaxBackOffSleepInterval() {
     return maxBackOffSleepInterval;
   }
@@ -248,7 +244,7 @@ public class TaildirSource extends AbstractSource implements
         reader.commit();
       } catch (ChannelException ex) {
         logger.warn("The channel is full or unexpected failure. " +
-            "The source will try again after " + retryInterval + " ms");
+          "The source will try again after " + retryInterval + " ms");
         TimeUnit.MILLISECONDS.sleep(retryInterval);
         retryInterval = retryInterval << 1;
         retryInterval = Math.min(retryInterval, maxRetryInterval);
@@ -314,7 +310,7 @@ public class TaildirSource extends AbstractSource implements
         String json = toPosInfoJson();
         writer.write(json);
       }
-    } catch (Throwable t) {
+    } catch (Throwable t){
       logger.error("Failed writing positionFile", t);
     } finally {
       try {

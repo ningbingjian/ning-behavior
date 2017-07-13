@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package cn.ning.flume.source;
+package com.urey.flume.source.taildir;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package cn.ning.flume.source;
+package com.urey.flume.source.taildir;
 
 import com.google.common.collect.Lists;
 import org.apache.flume.Event;
@@ -28,8 +28,11 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+
+import static com.urey.flume.source.taildir.TaildirSourceConfigurationConstants.BYTE_OFFSET_HEADER_KEY;
 
 public class TailFile {
   private static final Logger logger = LoggerFactory.getLogger(TailFile.class);
@@ -37,8 +40,8 @@ public class TailFile {
   private static final byte BYTE_NL = (byte) 10;
   private static final byte BYTE_CR = (byte) 13;
 
-  private static final int BUFFER_SIZE = 8192;
-  private static final int NEED_READING = -1;
+  private final static int BUFFER_SIZE = 8192;
+  private final static int NEED_READING = -1;
 
   private RandomAccessFile raf;
   private final String path;
@@ -57,7 +60,7 @@ public class TailFile {
     this.raf = new RandomAccessFile(file, "r");
     if (pos > 0) {
       raf.seek(pos);
-      lineReadPos = pos;
+      lineReadPos=pos;
     }
     this.path = file.getAbsolutePath();
     this.inode = inode;
@@ -66,56 +69,22 @@ public class TailFile {
     this.needTail = true;
     this.headers = headers;
     this.oldBuffer = new byte[0];
-    this.bufferPos = NEED_READING;
+    this.bufferPos= NEED_READING;
   }
 
-  public RandomAccessFile getRaf() {
-    return raf;
-  }
+  public RandomAccessFile getRaf() { return raf; }
+  public String getPath() { return path; }
+  public long getInode() { return inode; }
+  public long getPos() { return pos; }
+  public long getLastUpdated() { return lastUpdated; }
+  public boolean needTail() { return needTail; }
+  public Map<String, String> getHeaders() { return headers; }
+  public long getLineReadPos() { return lineReadPos; }
 
-  public String getPath() {
-    return path;
-  }
-
-  public long getInode() {
-    return inode;
-  }
-
-  public long getPos() {
-    return pos;
-  }
-
-  public long getLastUpdated() {
-    return lastUpdated;
-  }
-
-  public boolean needTail() {
-    return needTail;
-  }
-
-  public Map<String, String> getHeaders() {
-    return headers;
-  }
-
-  public long getLineReadPos() {
-    return lineReadPos;
-  }
-
-  public void setPos(long pos) {
-    this.pos = pos;
-  }
-
-  public void setLastUpdated(long lastUpdated) {
-    this.lastUpdated = lastUpdated;
-  }
-
-  public void setNeedTail(boolean needTail) {
-    this.needTail = needTail;
-  }
-
-  public void setLineReadPos(long lineReadPos) {
-    this.lineReadPos = lineReadPos;
-  }
+  public void setPos(long pos) { this.pos = pos; }
+  public void setLastUpdated(long lastUpdated) { this.lastUpdated = lastUpdated; }
+  public void setNeedTail(boolean needTail) { this.needTail = needTail; }
+  public void setLineReadPos(long lineReadPos) { this.lineReadPos = lineReadPos; }
 
   public boolean updatePos(String path, long inode, long pos) throws IOException {
     if (this.inode == inode && this.path.equals(path)) {
@@ -129,7 +98,7 @@ public class TailFile {
   public void updateFilePos(long pos) throws IOException {
     raf.seek(pos);
     lineReadPos = pos;
-    bufferPos = NEED_READING;
+    bufferPos= NEED_READING;
     oldBuffer = new byte[0];
   }
 
@@ -161,7 +130,7 @@ public class TailFile {
     }
     Event event = EventBuilder.withBody(line.line);
     if (addByteOffset == true) {
-      event.getHeaders().put(TaildirSourceConfigurationConstants.BYTE_OFFSET_HEADER_KEY, posTmp.toString());
+      event.getHeaders().put(BYTE_OFFSET_HEADER_KEY, posTmp.toString());
     }
     return event;
   }
@@ -176,8 +145,7 @@ public class TailFile {
     bufferPos = 0;
   }
 
-  private byte[] concatByteArrays(byte[] a, int startIdxA, int lenA,
-                                  byte[] b, int startIdxB, int lenB) {
+  private byte[] concatByteArrays(byte[] a, int startIdxA, int lenA, byte[] b, int startIdxB, int lenB) {
     byte[] c = new byte[lenA + lenB];
     System.arraycopy(a, startIdxA, c, 0, lenA);
     System.arraycopy(b, startIdxB, c, lenA, lenB);
@@ -226,8 +194,7 @@ public class TailFile {
         break;
       }
       // NEW_LINE not showed up at the end of the buffer
-      oldBuffer = concatByteArrays(oldBuffer, 0, oldBuffer.length,
-                                   buffer, bufferPos, buffer.length - bufferPos);
+      oldBuffer = concatByteArrays(oldBuffer, 0, oldBuffer.length, buffer, bufferPos, (buffer.length - bufferPos));
       bufferPos = NEED_READING;
     }
     return lineResult;
@@ -241,6 +208,13 @@ public class TailFile {
       setLastUpdated(now);
     } catch (IOException e) {
       logger.error("Failed closing file: " + path + ", inode: " + inode, e);
+    }
+  }
+
+  public static class CompareByLastModifiedTime implements Comparator<File> {
+    @Override
+    public int compare(File f1, File f2) {
+      return Long.valueOf(f1.lastModified()).compareTo(f2.lastModified());
     }
   }
 

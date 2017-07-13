@@ -199,7 +199,7 @@ class KafkaCluster(val kafkaParams: Map[String, String]) extends Serializable {
                 }
               } else {
                 errs.append(new SparkException(
-                  s"Empty offsets for ${tp}, is ${before} before log beginning?"))
+                  s"Empty offsets for ${tp}, is ${before} before cn.ning.log.producer.util.log beginning?"))
               }
             } else {
               errs.append(ErrorMapping.exceptionFor(por.error))

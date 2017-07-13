@@ -15,7 +15,7 @@
  * the License.
  */
 
-package cn.ning.flume.source;
+package com.urey.flume.source.taildir;
 
 public class TaildirSourceConfigurationConstants {
   /** Mapping for tailing file groups. */
@@ -50,11 +50,18 @@ public class TaildirSourceConfigurationConstants {
   public static final String BYTE_OFFSET_HEADER_KEY = "byteoffset";
   public static final boolean DEFAULT_BYTE_OFFSET_HEADER = false;
 
-  /** Whether to cache the list of files matching the specified file patterns till parent directory
-   * is modified.
-   */
-  public static final String CACHE_PATTERN_MATCHING = "cachePatternMatching";
-  public static final boolean DEFAULT_CACHE_PATTERN_MATCHING = true;
+  /** Flag to indicate if we should recursively checking for new files.  The default is false, so a
+   * configuration file entry would be needed to enable this setting */
+  public static final String RECURSIVE_DIRECTORY_SEARCH = "recursiveDirectorySearch";
+  public static final boolean DEFAULT_RECURSIVE_DIRECTORY_SEARCH = false;
+
+  /** Whether to include yarn application id in a header. */
+  public static final String YARN_APPLICATION_HEADER = "yarnApplicationHeader";
+  public static final boolean DEFAULT_YARN_APPLICATION_HEADER = false;
+
+  /** Whether to include yarn container id in a header. */
+  public static final String YARN_CONTAINER_HEADER = "yarnContainerHeader";
+  public static final boolean DEFAULT_YARN_CONTAINER_HEADER = false;
 
   /** Header in which to put absolute path filename. */
   public static final String FILENAME_HEADER_KEY = "fileHeaderKey";
